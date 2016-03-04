@@ -7,15 +7,18 @@ class Neuron {
 	 */
 	public $weights = [];
 
+	public $bias = null;
+
 	/**
 	 * initialize a neuron
 	 *
 	 * @param int $nInputs
 	 */
 	public function __construct(int $nInputs) {
-		for ($i = $nInputs + 1; $i--;) {
+		for ($i = $nInputs; $i--;) {
 			$this->weights[$i] = rand() / getrandmax() * 4 - 2;
 		}
+		$this->bias = -1;
 	}
 
 	/**
@@ -29,8 +32,8 @@ class Neuron {
 		foreach ($inputs as $index => $input) {
 			$sum += $input * $this->weights[$index];
 		}
-		//$sum += end($this->weights) * 1;
-		return $this->activation($sum);
+
+		return $this->activation($sum + $this->bias);
 	}
 
 	/**

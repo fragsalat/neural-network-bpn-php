@@ -8,7 +8,10 @@ class Network {
 	 */
 	private $layers = [];
 
-	private $learnRate = .3;
+	/**
+	 * @var {float}
+	 */
+	private $learnRate = .4;
 
 	/**
 	 * @param $nInputs
@@ -25,6 +28,29 @@ class Network {
 			$this->layers[] = $layer;
 			// Update input amount for next layer
 			$nInputs = $nNeurons;
+		}
+	}
+
+	/**
+	 * Store the current network weights in a file
+	 *
+	 * @param $fileName {string}
+	 */
+	public function save($fileName) {
+		file_put_contents($fileName, serialize($this->layers));
+	}
+
+	/**
+	 * Load network weights from file
+	 *
+	 * @param $fileName {string}
+	 */
+	public function load($fileName) {
+		if (is_file($fileName)) {
+			$layers = unserialize(file_get_contents($fileName));
+			if ($layers) {
+				$this->layers = $layers;
+			}
 		}
 	}
 
@@ -54,6 +80,7 @@ class Network {
 	 */
 	public function train($inputs, $desiredOutput) {
 		$outputs = [$inputs];
+		$output = [];
 		$currentInput = $inputs;
 		// Get outputs of all layers
 		foreach ($this->layers as $layer) {
@@ -67,7 +94,9 @@ class Network {
 			$outputs[] = $output;
 		}
 		// Back propagate the errors to weights on all neurons in all layers
-		$this->backpropagate($outputs, $desiredOutput);
+		$this->backPropagate($outputs, $desiredOutput);
+		// Return the accuracy of the current training
+		return $this->getAccuracy($output, $desiredOutput);
 	}
 
 	/**
@@ -76,7 +105,7 @@ class Network {
 	 * @param $outputs {Array}
 	 * @param $desired {Array}
 	 */
-	private function backpropagate($outputs, $desired) {
+	private function backPropagate($outputs, $desired) {
 		$deltas = [];
 		// Reverse iterate through layers to calculate neuron deltas
 		for ($i = count($this->layers); $i--;) {
@@ -102,7 +131,7 @@ class Network {
 		}
 		// Update the weights of all neurons
 		foreach ($this->layers as $l => $layer) {
-			foreach ($layer as $n => $neuron) {
+			foreach ($layer as $n => &$neuron) {
 				foreach ($neuron->weights as $w => &$weight) {
 					// Adjust weight by delta of this neuron times input for this neuron
 					// $outputs contains all initial inputs as additional layer
@@ -110,35 +139,24 @@ class Network {
 					// Use original input or bias 1
 					$weight += $this->learnRate * $deltas[$l][$n] * (isset($outputs[$l][$w]) ? $outputs[$l][$w] : 0);
 				}
+				$neuron->bias = $deltas[$l][$n];
 			}
 		}
 	}
 
-	private function bp($outputs, $desiredOutputs) {
-		$deltaOut = [];
-		$deltaHidden = [];
+	/**
+	 * Calculates the accuracy a output has reached
+	 *
+	 * @param $outputs {array}
+	 * @param $desired {array}
+	 * @return float
+	 */
+	private function getAccuracy($outputs, $desired) {
+		$accuracy = 0;
+		foreach ($outputs as $o => $output) {
+			$accuracy += $desired[$o] - $output;
+		}
 
-		foreach ($outputs[2] as $i => $output) {
-			$deltaOut[$i] = $output * (1 - $output) * ($desiredOutputs[$i] - $output);
-		}
-		foreach ($outputs[1] as $h => $hidden) {
-			$error = 0;
-			foreach ($outputs[2] as $o => $output) {
-				$error += $this->layers[1][$o]->weights[$h] * $deltaOut[$o];
-			}
-			$deltaHidden[$h] = $hidden * (1 - $hidden) * $error;
-		}
-		foreach ($this->layers[1] as $o => $output) {
-			foreach ($output->weights as $h => &$weight) {
-				if (empty($outputs[1][$h])) continue;
-				$weight += $this->learnRate * $deltaOut[$o] * $outputs[1][$h];
-			}
-		}
-		foreach ($this->layers[0] as $h => $hidden) {
-			foreach ($hidden->weights as $i => &$weight) {
-				if (empty($outputs[0][$i])) continue;
-				$weight += $this->learnRate * $deltaHidden[$h] * $outputs[0][$i];
-			}
-		}
+		return 1 - $accuracy / count($outputs);
 	}
 }
